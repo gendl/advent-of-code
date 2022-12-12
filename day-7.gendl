@@ -1,0 +1,113 @@
+(in-package :gdl-user)
+(gdl:define-package :aoc2022-day-7)
+(in-package :aoc2022-day-7)
+
+(defparameter *source-home* (glisp:source-pathname))
+
+(define-object reader (subdir)
+  :input-slots
+  ((input-pathname (merge-pathnames "day-7.input" *source-home*))
+
+   ;;(puzzle-input (alexandria:read-file-into-string (the input-pathname)))
+   
+   ;;#+nil
+   (puzzle-input "$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k")
+
+   (disk-size 70000000)
+   (update-size 30000000)
+   
+   )
+
+  :computed-slots
+  ((input-lines (glisp:split-regexp "\\n" (the puzzle-input)))
+
+   (free-space (- (the disk-size) (the root-dir total-size)))
+   (needed-space (when (> (the update-size) (the free-space))
+                   (- (the update-size) (the free-space))))
+
+   (big-enough-subdir-sizes (remove-if #'(lambda(size)(< size (the needed-space)))
+                                       (the root-dir subdir-sizes)))
+
+   (sorted-big-enough (safe-sort (the big-enough-subdir-sizes) #'<))
+
+   (subdir-to-delete (first (the sorted-big-enough)))
+
+
+   )
+
+  :functions
+  ((populate! ()
+            (let (state (current-dir (the root-dir)))
+              (unless (string-equal (first (the input-lines)) "$ cd /")
+                (error "first line of input: ~a, is different from expected.~%"
+                       (first (the puzzle-input))))
+              (dolist (line (rest (the input-lines)))
+                (cond ((string-equal line "$ ls")
+                       (setq state :listing))
+                      ((search "$ cd"  line)
+                       (setq state nil)
+                       (let ((target (third (glisp:split-regexp " " line))))
+                         (when (and (string-equal target "..") (not (theo current-dir root?)))
+                           (setq current-dir (theo current-dir parent)))
+                         (unless (string-equal target "..")
+                           (setq current-dir (theo current-dir (by-name target))))))
+                      ((and (eql state :listing)
+                            (not (or (search "$ cd" line)(search "$ ls" line))))
+                       (if (search "dir " line)
+                           (let* ((new-dir (second (glisp:split-regexp " " line)))
+                                  (key (make-keyword new-dir)))
+                             (print-variables new-dir key)
+                             (theo current-dir subdirs (activate! key))
+                             (theo current-dir (subdirs key) (set-slot! :name new-dir)))
+                           (destructuring-bind (size filename)(glisp:split-regexp " " line)
+                             (let ((files (copy-list (theo current-dir files)))
+                                   (file (make-keyword filename)))
+                               (setf (getf files file) (parse-integer size))
+                               (theo current-dir (set-slot! :files files))))))
+                      (t (error "Can't understand input line ~a.~% " line)))))))
+
+
+  :objects
+  ((root-dir :type 'subdir)))
+
+
+(define-object subdir ()
+  :input-slots (name)
+  :computed-slots ((files nil :settable)
+                   (total-size (+ (reduce #'+ (plist-values (the files)))
+                                  (sum-elements (the subdirs) (the-element total-size))))
+
+                   (subdir-sizes (maptree self #'(lambda(obj)(theo obj total-size))))
+                   (small-sizes (remove-if #'(lambda(size) (> size 100000)) (the subdir-sizes)))
+                   (total-small-sizes (reduce #'+ (the small-sizes)))
+                   
+                   (subdir-ht (let ((ht (make-hash-table :test #'equalp)))
+                                (mapcar #'(lambda(obj)(setf (gethash (theo obj name) ht) obj))
+                                         (list-elements (the subdirs))) ht)))
+  
+  :functions ((by-name (name) (gethash name (the subdir-ht))))
+  
+  :objects ((subdirs :type 'subdir
+                     :sequence (:indices nil))))

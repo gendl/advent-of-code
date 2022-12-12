@@ -1,0 +1,200 @@
+(in-package :gdl-user)
+(gdl:define-package :aoc2022-day-11)
+(in-package :aoc2022-day-11)
+
+(defparameter *puzzle-input-test* nil)
+(defparameter *puzzle-input* nil)
+
+(define-object monkey-biz ()
+
+  :input-slots ((puzzle-input *puzzle-input*) (puzzle-part 1))
+
+  :computed-slots ((round 0 :settable)
+                   (monkey-strings
+                    (remove-if #'(lambda(string)(zerop (length string)))
+                               (glisp:split-regexp "Monkey" (the puzzle-input))))
+
+                   (monkey-business (let ((items (safe-sort
+                                                  (mapsend (the monkeys) :inspected-items)
+                                                  #'>)))
+                                      (* (first items) (second items))))
+
+                   (common-divisor (reduce #'* (mapsend (the monkeys) :test-divisor))))
+  
+
+  :objects ((monkeys :type 'monkey
+                     :sequence (:size (length (the monkey-strings)))
+                     :pass-down (puzzle-part common-divisor)
+                     :string (nth (the-child index) (the monkey-strings))))
+  
+  :functions
+  ((rounds! (&key (times (ecase (the puzzle-part) (1 20) (2 10000))))
+            (dotimes (i times)
+              (dolist (monkey (list-elements (the monkeys)))
+                (theo monkey round!))
+              (the (set-slot! :round (1+ (the round))))
+
+              (let ((print? (or (= (the puzzle-part) 1)
+                                (member (the round)
+                                        (list 1 20 1000 2000 3000 4000
+                                              5000 6000 7000 8000 9000 10000)))))
+                (when print? (the print!))
+                ))
+
+            (format t "~%Resulting Monkey Business: ~a~%" (the monkey-business)))
+
+   (print!
+    ()
+    (ecase (the puzzle-part)
+      (1 (format t "~&~%After Round ~d, the monkeys are holding items with these worry levels:~%"
+                 (the round)))
+      (2 (format t "~&~%== After Round ~d ==" (the round))))
+    (dolist (monkey (list-elements (the monkeys))) (theo monkey print!)))))
+
+
+
+(define-object monkey ()
+  :input-slots (string puzzle-part common-divisor)
+
+  :computed-slots ((inspected-items 0 :settable)
+                   (lines (glisp:split-regexp "\\n" (the string)))
+                   (number (parse-integer (first (glisp:split-regexp ":" (first (the lines))))))
+                   (starting-items
+                    (mapcar #'parse-integer
+                            (glisp:split-regexp
+                             ","
+                             (second (glisp:split-regexp "Starting items:"
+                                                         (second (the lines)))))) :settable)
+                   (operation
+                    (the (make-lambda-from
+                          (second (glisp:split-regexp "Operation:" (third (the lines)))))))
+                   (test-divisor
+                    (parse-integer
+                     (second
+                      (glisp:split-regexp
+                       " divisible by "
+                       (second (glisp:split-regexp "Test:" (fourth (the lines))))))))
+                   (if-true (parse-integer (lastcar (glisp:split-regexp "" (fifth (the lines))))))
+                   (if-false (parse-integer (lastcar (glisp:split-regexp "" (sixth (the lines)))))))
+
+  :functions
+  ((print! ()
+           (ecase (the puzzle-part)
+             (1 (format t "~&Monkey ~D: ~{~D~^, ~}~%"
+                        (the number) (the starting-items)))
+             (2 (format t "~&Monkey ~D inspected items ~D times.~%"
+                        (the number) (the inspected-items)))))
+
+
+   (round! ()
+           (dolist (item (the starting-items))
+             (the (set-slot! :inspected-items (1+ (the inspected-items))))
+             (let* ((worry-level
+                      (let ((raw-level (funcall (the operation) item)))
+                        (ecase (the puzzle-part)
+                          (1 (floor (/  raw-level 3)))
+                          (2  (mod raw-level (the common-divisor))))))
+                    (test-result (integerp (/ worry-level (the test-divisor)))))
+               (the (throw-to! worry-level (if test-result (the if-true) (the if-false))))))
+           (the (set-slot! :starting-items nil)))
+
+   (throw-to! (item monkey-num)
+              (let* ((target (the (monkeys monkey-num)))
+                     (items (theo target starting-items)))
+                (theo target (set-slot! :starting-items (append items (list item))))))
+                                        
+   
+   (make-lambda-from
+    (operation)
+    (let ((operation (first (remove-if #'(lambda(string)(zerop (length string)))
+                                       (glisp:split-regexp " new =" operation)))))
+      (let ((tokens
+              (remove nil (mapcar #'read-safe-string (glisp:split-regexp " " operation)))))
+        (destructuring-bind (arg1 op arg2) tokens
+          (eval `(lambda (,arg1) (,op ,arg1 ,arg2)))))))))
+
+
+(setq *puzzle-input-test* "Monkey 0:
+  Starting items: 79, 98
+  Operation: new = old * 19
+  Test: divisible by 23
+    If true: throw to monkey 2
+    If false: throw to monkey 3
+
+Monkey 1:
+  Starting items: 54, 65, 75, 74
+  Operation: new = old + 6
+  Test: divisible by 19
+    If true: throw to monkey 2
+    If false: throw to monkey 0
+
+Monkey 2:
+  Starting items: 79, 60, 97
+  Operation: new = old * old
+  Test: divisible by 13
+    If true: throw to monkey 1
+    If false: throw to monkey 3
+
+Monkey 3:
+  Starting items: 74
+  Operation: new = old + 3
+  Test: divisible by 17
+    If true: throw to monkey 0
+    If false: throw to monkey 1")
+
+(setq *puzzle-input* "Monkey 0:
+  Starting items: 65, 78
+  Operation: new = old * 3
+  Test: divisible by 5
+    If true: throw to monkey 2
+    If false: throw to monkey 3
+
+Monkey 1:
+  Starting items: 54, 78, 86, 79, 73, 64, 85, 88
+  Operation: new = old + 8
+  Test: divisible by 11
+    If true: throw to monkey 4
+    If false: throw to monkey 7
+
+Monkey 2:
+  Starting items: 69, 97, 77, 88, 87
+  Operation: new = old + 2
+  Test: divisible by 2
+    If true: throw to monkey 5
+    If false: throw to monkey 3
+
+Monkey 3:
+  Starting items: 99
+  Operation: new = old + 4
+  Test: divisible by 13
+    If true: throw to monkey 1
+    If false: throw to monkey 5
+
+Monkey 4:
+  Starting items: 60, 57, 52
+  Operation: new = old * 19
+  Test: divisible by 7
+    If true: throw to monkey 7
+    If false: throw to monkey 6
+
+Monkey 5:
+  Starting items: 91, 82, 85, 73, 84, 53
+  Operation: new = old + 5
+  Test: divisible by 3
+    If true: throw to monkey 4
+    If false: throw to monkey 1
+
+Monkey 6:
+  Starting items: 88, 74, 68, 56
+  Operation: new = old * old
+  Test: divisible by 17
+    If true: throw to monkey 0
+    If false: throw to monkey 2
+
+Monkey 7:
+  Starting items: 54, 82, 72, 71, 53, 99, 67
+  Operation: new = old + 1
+  Test: divisible by 19
+    If true: throw to monkey 6
+    If false: throw to monkey 0")
+
