@@ -1,32 +1,57 @@
-(in-package :gdl-user)
-(gdl:define-package :aoc2022-day-5)
-(in-package :aoc2022-day-5)
+(in-package :gdl-user)(gdl:define-package :aoc2022-day-5)(in-package :aoc2022-day-5)
 
-(defparameter *source-home* (glisp:source-pathname))
+
+
+(defun part-1 () (theo (make-object 'stacker) encoding))
+
+(defun part-2 () (theo (make-object 'stacker :puzzle-part 2) encoding))
+
+
+
+(defparameter *puzzle-input* nil)(defparameter *stacks* nil)
 
 (define-object stacker ()
   
-  :input-slots (;;(stacks '(1 (n z) 2 (d c m) 3 (p)))
+  :input-slots ((stacks *stacks*)(puzzle-input *puzzle-input*) (puzzle-part 1))
 
-                #+nil
-                (procedure "move 1 from 2 to 1
-move 3 from 1 to 3
-move 2 from 2 to 1
-move 1 from 1 to 2")
+  :computed-slots ((move-list (mapcar #'(lambda(string)
+                                          (glisp:split-regexp " " string))
+                                      (glisp:split-regexp "\\n" (the puzzle-input))))
+                   
+                   (moves (mapcar #'(lambda(move)
+                                      (mapcar #'parse-integer
+                                              (list (second move)(fourth move)(sixth move))))
+                                  (the move-list)))
 
+                   (tops-after-moves (mapcar #'first (plist-values (the stacks-after-moves))))
+                   
+                   (encoding (apply #'string-append (mapcar #'symbol-name (the tops-after-moves))))
+                   
+                   (stacks-after-moves
+                    (let ((stacks (copy-list (the stacks))))
+                      (dolist (move (the moves) stacks)
+                        (destructuring-bind (number from to) move
+                          (ecase (the puzzle-part)
+                            (1 (dotimes (i number)
+                                 (push (pop (getf stacks from)) (getf stacks to))))
+                            (2 (let (buffer)
+                                 (dotimes (i number)
+                                   (push (pop (getf stacks from)) buffer))
+                                 (dotimes (i number)
+                                   (push (pop buffer) (getf stacks to))))))))))))
 
-                
-                (stacks '(1 (r h m p z)
-                          2 (b j c p)
-                          3 (d c l g h n s)
-                          4 (l r s q d m t f)
-                          5 (m z t b q p s f)
-                          6 (g b z s f t)
-                          7 (v r n)
-                          8 (m c v d t l g p)
-                          9 (l m f j n q w)))
-
-                (procedure "move 7 from 3 to 9
+                   
+(setq *stacks* '(1 (r h m p z)
+                 2 (b j c p)
+                 3 (d c l g h n s)
+                 4 (l r s q d m t f)
+                 5 (m z t b q p s f)
+                 6 (g b z s f t)
+                 7 (v r n)
+                 8 (m c v d t l g p)
+                 9 (l m f j n q w))
+      
+      *puzzle-input* "move 7 from 3 to 9
 move 5 from 8 to 9
 move 3 from 9 to 5
 move 6 from 9 to 2
@@ -526,36 +551,4 @@ move 2 from 6 to 3
 move 5 from 2 to 7
 move 1 from 7 to 8
 move 1 from 1 to 6
-move 3 from 5 to 1"))
-  
-
-  
-
-  :computed-slots ((move-list (mapcar #'(lambda(string)
-                                          (glisp:split-regexp " " string))
-                                      (glisp:split-regexp "\\n" (the procedure))))
-                   (moves (mapcar #'(lambda(move)
-                                      (mapcar #'parse-integer
-                                              (list (second move)
-                                                    (fourth move)
-                                                    (sixth move))))
-                                  (the move-list)))
-
-                   (tops-after-move (mapcar #'first (plist-values (the stacks-after-moves))))
-                   
-                   (encoding (apply #'string-append (mapcar #'symbol-name (the tops-after-move))))
-                   
-                   (stacks-after-moves
-                    (let ((stacks (copy-list (the stacks))))
-                      (dolist (move (the moves) stacks)
-                        (destructuring-bind (number from to) move
-                          (let (buffer)
-                            (dotimes (i number)
-                              (push (pop (getf stacks from)) buffer))
-                            (dotimes (i number)
-                              (push (pop buffer) (getf stacks to))))))))))
-
-                   
-
-  
-
+move 3 from 5 to 1")

@@ -1,27 +1,26 @@
-(in-package :gdl-user)
-(gdl:define-package :aoc2022-day-8)
-(in-package :aoc2022-day-8)
+(in-package :gdl-user)(gdl:define-package :aoc2022-day-8)(in-package :aoc2022-day-8)
 
-(defparameter *real-input* nil)
+
+(defun part-1 () (theo (make-object 'tree-grid) number-visible))
+
+(defun part-2 () (theo (make-object 'tree-grid) top-viewing-score))
+
+
+
+(defparameter *puzzle-input* nil)
 
 (define-object tree-grid (base-object)
 
-  :input-slots ((map *real-input*)
-
-                #+nil
-                (map "30373
-25512
-65332
-33549
-35390")
+  :input-slots ((map *puzzle-input*)
+                
                 (map-rows (glisp:split-regexp #\newline (the map)))
 
-
-                (number-visible (let ((count 0))
-                                  (dotimes (row (getf (the grid number-of-elements) :longitudinal) count)
-                                    (dotimes (column (getf (the grid number-of-elements) :lateral))
-                                      (when (the (grid row column) visible?)
-                                        (incf count))))))
+                (number-visible
+                 (let ((count 0))
+                   (dotimes (row (getf (the grid number-of-elements) :longitudinal) count)
+                     (dotimes (column (getf (the grid number-of-elements) :lateral))
+                       (when (the (grid row column) visible?) (incf count))))))
+                
                 (top-viewing-score
                  (let ((max 0))
                    (dotimes (row (getf (the grid number-of-elements) :longitudinal) max)
@@ -43,14 +42,16 @@
 
   :computed-slots ((north (unless (zerop (first (the index)))
                             (the (grid (1- (first (the index))) (second (the index))))))
-                   (south (unless (= (first (the index)) (1- (getf (the number-of-elements) :longitudinal)))
+                   (south (unless (= (first (the index))
+                                     (1- (getf (the number-of-elements) :longitudinal)))
                             (the (grid (1+ (first (the index))) (second (the index))))))
-                   (east (unless (= (second (the index)) (1- (getf (the number-of-elements) :lateral)))
+                   (east (unless (= (second (the index))
+                                    (1- (getf (the number-of-elements) :lateral)))
                            (the (grid (first (the index)) (1+ (second (the index)))))))
                    (west (unless (zerop (second (the index)))
                            (the (grid (first (the index)) (1- (second (the index)))))))
 
-                   (edge? (or (null (the north))(null (the south))(null (the east))(null (the west))))
+                   (edge? (not (and (the north) (the south) (the east) (the west))))
 
                    (visible? (or (the edge?)
                                  (the (clear? :north (the tree-height)))
@@ -80,7 +81,7 @@
                                  (theo neighbor (clear? direction tree-height))))))))
 
 
-(setq *real-input* "113003322412033102023303501444545044215232525401341546163452453404402234201151432242402140110220101
+(setq *puzzle-input* "113003322412033102023303501444545044215232525401341546163452453404402234201151432242402140110220101
 332001304022012142421445502213221330453061535265122314201352335233021055055200345412200440033322200
 011113132214324432134325045311145402450516101640412524056254134552334050434552541351100000142223210
 120100233011423423144030334144351644642605521663331053414601341464201040045104150001214204243212330

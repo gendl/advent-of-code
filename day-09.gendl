@@ -2,70 +2,59 @@
 (gdl:define-package :aoc2022-day-9)
 (in-package :aoc2022-day-9)
 
-(defparameter *puzzle-input-test* nil)
-(defparameter *puzzle-input-test-2* nil)
-(defparameter *puzzle-input-short* nil)
-(defparameter *puzzle-input-real* nil)
-
-(defparameter *bridge* nil)
 
 
-;;
-;; flag -- not used here but maybe useful for other days
-;;
-(defsetf get-x (vector)(value)
-  `(setf (svref ,vector 0) (coerce ,value 'double-float)))
+(defun part-1 ()
+  (let ((self (make-object 'rope-bridge :number-of-knots 2)))
+    (the (do-moves!)) (the number-of-tail-moves)))
 
-(defsetf get-y (vector)(value)
-  `(setf (svref ,vector 1) (coerce ,value 'double-float)))
+(defun part-2 ()
+  (let ((self (make-object 'rope-bridge :number-of-knots 10)))
+    (the (do-moves!)) (the number-of-tail-moves)))
 
-(defsetf get-z (vector)(value)
-  `(setf (svref ,vector 2) (coerce ,value 'double-float)))
 
 
 (defparameter *tail-visited-points* nil)
+(defparameter *puzzle-input* nil)
+(defparameter *puzzle-input-test* nil)
+
 
 (define-object rope-bridge (base-object)
 
-  :input-slots ((puzzle-input *puzzle-input-test*)
+  :input-slots ((puzzle-input *puzzle-input*)
+                (number-of-knots 2)
                 (field-width 5)
                 (field-length 5)
+                (visited-hash nil :settable)
                 (head (make-vector 0 0) :settable)
-                (t1 (make-vector 0 0) :settable)
-                (t2 (make-vector 0 0) :settable)
-                (t3 (make-vector 0 0) :settable)
-                (t4 (make-vector 0 0) :settable)
-                (t5 (make-vector 0 0) :settable)
-                (t6 (make-vector 0 0) :settable)
-                (t7 (make-vector 0 0) :settable)
-                (t8 (make-vector 0 0) :settable)
-                (t9 (make-vector 0 0) :settable)
 
-
-
+                (tails (make-list (1- (the number-of-knots))
+                                  :initial-element (make-vector 0 0)) :settable))
                 
-                (s-position (make-vector 0 0)))
 
 
-  :computed-slots ((moves (glisp:split-regexp "\\n" (the puzzle-input))))
+  :computed-slots ((moves (glisp:split-regexp "\\n" (the puzzle-input)))
 
+                   (number-of-tail-moves
+                    (and (the visited-hash) (hash-table-count (the visited-hash)))))
 
-
+  
   :functions ((reset!
                ()
-               (the (restore-slot-defaults!
-                     (list :head :t1 :t2 :t3 :t4 :t5 :t6 :t7 :t8 :t9)))
-               (setq *tail-visited-points* nil)
-               (push (the head) *tail-visited-points*))
+               (the (restore-slot-defaults! (list :tails :visited-hash))))
+
 
               (do-moves!
                   (&key (moves (the moves)))
                 (the reset!)
-                (dolist (move moves)
-                  (destructuring-bind (direction distance) (glisp:split-regexp " " move)
-                    (setq distance (parse-integer distance) direction (make-keyword direction))
-                    (dotimes (n distance)
-                      (the (do-move! direction))))))
+                (let ((*tail-visited-points* (make-hash-table :size 8000 :test #'equalp)))
+                  (setf (gethash (the head) *tail-visited-points*) t)
+                  (dolist (move moves)
+                    (destructuring-bind (direction distance) (glisp:split-regexp " " move)
+                      (setq distance (parse-integer distance) direction (make-keyword direction))
+                      (dotimes (n distance)
+                        (the (do-move! direction)))))
+                  (the (set-slot! :visited-hash *tail-visited-points*))))
 
               (do-move! (direction)
                 (let ((head 
@@ -79,64 +68,29 @@
                           (:r (make-vector (1+ (get-x (the head)))
                                                (get-y (the head)))))))
                   (the (set-slot! :head head))
-                  (the tails-follow-head!)
-                  ))
+                  (the (set-slot! :tails (the tails-follow-head!)))
+                  (setf (gethash (lastcar (the tails)) *tail-visited-points*) t)))
 
               (tails-follow-head!
-               ()
-               (mapc #'(lambda(head tail)
-                         (the (tail-follow-head!
-                                 :head-message head
-                                 :tail-message tail)))
-                       (list :head :t1 :t2 :t3 :t4 :t5 :t6 :t7 :t8 :t9)
-                       (list :t1 :t2 :t3 :t4 :t5 :t6 :t7 :t8 :t9)))
-
+               (&optional (head (the head)) (tails (the tails)))
+               (when tails
+                 (let ((new-head (the (tail-follow-head! head (first tails)))))
+                   (cons new-head (the (tails-follow-head! new-head (rest tails)))))))
               
               (tail-follow-head!
-               (&key head-message tail-message)
-               (let ((head (the (evaluate head-message)))
-                     (tail (the (evaluate tail-message))))
-                 (unless (< (3d-distance head tail) 2)
-                  (let ((mid-point (midpoint head tail)))
+               (head tail)
+               (if (< (3d-distance head tail) 2) tail
+                   (let ((mid-point (midpoint head tail)))
                      (let ((mid-ceil (make-vector (ceiling (get-x mid-point))
                                                   (ceiling (get-y mid-point))))
                            (mid-floor (make-vector (floor (get-x mid-point))
                                                    (floor (get-y mid-point)))))
                        (let ((dist-ceil (3d-distance mid-ceil head))
                              (dist-floor (3d-distance mid-floor head)))
-                         (the (set-slot! tail-message (if (< dist-ceil dist-floor)
-                                                          mid-ceil
-                                                          mid-floor))))))
-                   (when (eql tail-message :t9)
-                     (pushnew (the (evaluate tail-message)) *tail-visited-points*
-                              :test #'equalp)))))))
-
-(defun run (&key (puzzle-input *puzzle-input-real*))
-  (let ((bridge (make-object 'rope-bridge :puzzle-input puzzle-input)))
-    (theo bridge (do-moves!))
-    (setq *bridge* bridge)
-    (length *tail-visited-points*)))
+                         (if (< dist-ceil dist-floor) mid-ceil mid-floor))))))))
 
 
-
-(setq *puzzle-input-short*
-      "R 4")
-
-
-(setq *puzzle-input-test*
-      "R 4
-U 4
-L 3
-D 1
-R 4
-D 1
-L 5
-R 2")
-
-
-
-(setq *puzzle-input-test-2*
-      "R 5
+(setq *puzzle-input-test* "R 5
 U 8
 L 8
 D 3
@@ -145,7 +99,8 @@ D 10
 L 25
 U 20")
 
-(setq *puzzle-input-real*
+
+(setq *puzzle-input*
       "L 1
 D 2
 L 2
