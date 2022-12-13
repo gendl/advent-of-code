@@ -2,23 +2,35 @@
 (gdl:define-package :aoc2022-day-11)
 (in-package :aoc2022-day-11)
 
+
+
+(defun part-1 () (let ((self (make-object 'monkey-biz :puzzle-part 1)))
+                   (the rounds!)(the monkey-business-level)))
+
+(defun part-2 () (let ((self (make-object 'monkey-biz :puzzle-part 2)))
+                   (the rounds!)(the monkey-business-level)))
+
+
+
 (defparameter *puzzle-input-test* nil)
 (defparameter *puzzle-input* nil)
 
 (define-object monkey-biz ()
 
-  :input-slots ((puzzle-input *puzzle-input*) (puzzle-part 1))
+  :input-slots ((puzzle-input *puzzle-input*) (puzzle-part 1) (print? nil))
 
   :computed-slots ((round 0 :settable)
                    (monkey-strings
                     (remove-if #'(lambda(string)(zerop (length string)))
                                (glisp:split-regexp "Monkey" (the puzzle-input))))
 
-                   (monkey-business (let ((items (safe-sort
-                                                  (mapsend (the monkeys) :inspected-items)
-                                                  #'>)))
-                                      (* (first items) (second items))))
+                   (monkey-business-level
+                    (let ((items (safe-sort (mapsend (the monkeys) :inspected-items) #'>)))
+                      (* (first items) (second items))))
 
+                   ;;
+                   ;; Got this hint from reddit and some Lisp solutions on github
+                   ;;
                    (common-divisor (reduce #'* (mapsend (the monkeys) :test-divisor))))
   
 
@@ -34,14 +46,15 @@
                 (theo monkey round!))
               (the (set-slot! :round (1+ (the round))))
 
-              (let ((print? (or (= (the puzzle-part) 1)
-                                (member (the round)
-                                        (list 1 20 1000 2000 3000 4000
-                                              5000 6000 7000 8000 9000 10000)))))
+              (let ((print? (and (the print?)
+                                 (or (= (the puzzle-part) 1)
+                                     (member (the round)
+                                             (list 1 20 1000 2000 3000 4000
+                                                   5000 6000 7000 8000 9000 10000))))))
                 (when print? (the print!))
                 ))
 
-            (format t "~%Resulting Monkey Business: ~a~%" (the monkey-business)))
+            (format t "~%Resulting Monkey Business: ~a~%" (the monkey-business-level)))
 
    (print!
     ()
@@ -59,7 +72,7 @@
   :computed-slots ((inspected-items 0 :settable)
                    (lines (glisp:split-regexp "\\n" (the string)))
                    (number (parse-integer (first (glisp:split-regexp ":" (first (the lines))))))
-                   (starting-items
+                   (inventory
                     (mapcar #'parse-integer
                             (glisp:split-regexp
                              ","
@@ -81,27 +94,36 @@
   ((print! ()
            (ecase (the puzzle-part)
              (1 (format t "~&Monkey ~D: ~{~D~^, ~}~%"
-                        (the number) (the starting-items)))
+                        (the number) (the inventory)))
              (2 (format t "~&Monkey ~D inspected items ~D times.~%"
                         (the number) (the inspected-items)))))
 
 
    (round! ()
-           (dolist (item (the starting-items))
-             (the (set-slot! :inspected-items (1+ (the inspected-items))))
-             (let* ((worry-level
-                      (let ((raw-level (funcall (the operation) item)))
-                        (ecase (the puzzle-part)
-                          (1 (floor (/  raw-level 3)))
-                          (2  (mod raw-level (the common-divisor))))))
-                    (test-result (integerp (/ worry-level (the test-divisor)))))
-               (the (throw-to! worry-level (if test-result (the if-true) (the if-false))))))
-           (the (set-slot! :starting-items nil)))
+           (let ((inspected (the inspected-items))
+                 (monkey-inventories (mapcar #'(lambda(monkey)
+                                                 (copy-list (theo monkey inventory)))
+                                             (list-elements (the monkeys)))))
+             (dolist (item (the inventory))
+               (incf inspected)
+               (let* ((worry-level
+                        (let ((raw-level (funcall (the operation) item)))
+                          (ecase (the puzzle-part)
+                            (1 (floor (/  raw-level 3)))
+                            (2  (mod raw-level (the common-divisor))))))
+                      (test-result (integerp (/ worry-level (the test-divisor)))))
+                 (the (throw-to! worry-level (if test-result (the if-true) (the if-false))
+                                        monkey-inventories))))
+             (the (set-slot! :inspected-items inspected))
+             (let ((count -1))
+               (dolist (inventory monkey-inventories)
+                 (the (monkeys (incf count))
+                      (set-slot! :inventory inventory))))
+             (the (set-slot! :inventory nil))))
 
-   (throw-to! (item monkey-num)
-              (let* ((target (the (monkeys monkey-num)))
-                     (items (theo target starting-items)))
-                (theo target (set-slot! :starting-items (append items (list item))))))
+   (throw-to! (item monkey-num monkey-inventories)
+              (setf (nth monkey-num monkey-inventories)
+                    (nconc  (nth monkey-num monkey-inventories) (list item))))
                                         
    
    (make-lambda-from
@@ -111,6 +133,7 @@
       (let ((tokens
               (remove nil (mapcar #'read-safe-string (glisp:split-regexp " " operation)))))
         (destructuring-bind (arg1 op arg2) tokens
+          ;; FLAG - get rid of this eval.
           (eval `(lambda (,arg1) (,op ,arg1 ,arg2)))))))))
 
 
