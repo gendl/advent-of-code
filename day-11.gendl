@@ -2,6 +2,8 @@
 (gdl:define-package :aoc2022-day-11)
 (in-package :aoc2022-day-11)
 
+(defparameter *puzzle-input-test* nil)(defparameter *puzzle-input* nil)
+
 
 
 (defun part-1 () (let ((self (make-object 'monkey-biz :puzzle-part 1)))
@@ -11,9 +13,6 @@
                    (the rounds!)(the monkey-business-level)))
 
 
-
-(defparameter *puzzle-input-test* nil)
-(defparameter *puzzle-input* nil)
 
 (define-object monkey-biz ()
 

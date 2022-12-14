@@ -2,26 +2,24 @@
 (gdl:define-package :aoc2022-day-9)
 (in-package :aoc2022-day-9)
 
+(defparameter *tail-visited-points* nil)
+(defparameter *puzzle-input* nil) (defparameter *puzzle-input-test* nil)
+
 
 
 (defun part-1 ()
-  (let ((self (make-object 'rope-bridge :number-of-knots 2)))
+  (let ((self (make-object 'rope-bridge :puzzle-input *puzzle-input* :number-of-knots 2)))
     (the (do-moves!)) (the number-of-tail-moves)))
 
 (defun part-2 ()
-  (let ((self (make-object 'rope-bridge :number-of-knots 10)))
+  (let ((self (make-object 'rope-bridge :puzzle-input *puzzle-input* :number-of-knots 10)))
     (the (do-moves!)) (the number-of-tail-moves)))
 
-
-
-(defparameter *tail-visited-points* nil)
-(defparameter *puzzle-input* nil)
-(defparameter *puzzle-input-test* nil)
 
 
 (define-object rope-bridge (base-object)
 
-  :input-slots ((puzzle-input *puzzle-input*)
+  :input-slots ((puzzle-input *puzzle-input-test*)
                 (number-of-knots 2)
                 (field-width 5)
                 (field-length 5)

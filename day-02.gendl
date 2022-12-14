@@ -8,9 +8,9 @@
   (theo (make-object 'rock-paper-scissors :puzzle-input *puzzle-input*)
         strategy-guide-score))
 
-(defun part-2 () (theo (make-object 'rock-paper-scissors
-                                    :puzzle-input *puzzle-input* :puzzle-part 2)
-                       strategy-guide-score))
+(defun part-2 ()
+  (theo (make-object 'rock-paper-scissors :puzzle-input *puzzle-input* :puzzle-part 2)
+        strategy-guide-score))
 
 
 

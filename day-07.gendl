@@ -1,22 +1,22 @@
 (in-package :gdl-user)(gdl:define-package :aoc2022-day-7)(in-package :aoc2022-day-7)
 
+(defparameter *puzzle-input-test* nil)(defparameter *puzzle-input* nil)
+
 
 
 (defun part-1 ()
-  (let ((self (make-object 'reader)))
+  (let ((self (make-object 'reader :puzzle-input *puzzle-input*)))
     (the populate!) (the root-dir total-small-sizes)))
 
 (defun part-2 ()
-  (let ((self (make-object 'reader)))
+  (let ((self (make-object 'reader :puzzle-input *puzzle-input*)))
     (the populate!) (the subdir-to-delete)))
 
 
 
-(defparameter *puzzle-input-test* nil)(defparameter *puzzle-input* nil)
-
 (define-object reader (subdir)
   :input-slots
-  ((puzzle-input *puzzle-input*)
+  ((puzzle-input *puzzle-input-test*)
 
    (disk-size 70000000)
    (update-size 30000000))
