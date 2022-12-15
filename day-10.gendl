@@ -5,40 +5,103 @@
 (defparameter *puzzle-input* nil) (defparameter *puzzle-input-test* nil)
 
 
+
 (defun part-1 ()
   (the-object (make-object 'device :puzzle-input *puzzle-input*) strength-sum))
 
 (defun part-2 ()
   (let ((self (the-object (make-object 'device :puzzle-input *puzzle-input* :puzzle-part 2))))
-    (print (the crt-screen))))
+    (the print!)))
+
 
 
 (define-object device ()
   :input-slots ((puzzle-input *puzzle-input-test*)
                 (puzzle-part 1)
                 (register-init-value 1)
-                (interesting-cyles (list 20 60 100 140 180 220)))
-                                                   
+                (interesting-cyles (list 20 60 100 140 180 220))
+                (sprite-length 3)
+                (rows 6) (columns 40)(pixels (* (the rows) (the columns)))
+                (crt (let ((array (make-array (the rows))))
+                       (dotimes (i (the rows) array)
+                         (setf (aref array i)
+                               (make-string (the columns) :initial-element #\o))))))
 
-  :computed-slots (
-                   (strength-sum (let ((count 0)
+  :computed-slots ((strength-sum (let ((cycle 0)
                                        (register-value (the register-init-value))
                                        (sum 0))
                                    (dolist (instruction (the instructions) sum)
-                                     (incf count)
-                                     (when (member count (the interesting-cyles))
-                                       (incf sum (* count register-value)))
+                                     (incf cycle)
+                                     (when (member cycle (the interesting-cyles))
+                                       (incf sum (* cycle register-value)))
                                      (destructuring-bind (op &optional arg)
                                          (glisp:split-regexp " " instruction)
                                        (setq op (make-keyword op) arg (and arg (parse-integer arg)))
                                        (when (eql op :addx)
-                                         (incf count)
-                                         (when (member count (the interesting-cyles))
-                                           (incf sum (* count register-value)))
+                                         (incf cycle)
+                                         (when (member cycle (the interesting-cyles))
+                                           (incf sum (* cycle register-value)))
                                          (incf register-value arg))))))
 
 
-                   (instructions (glisp:split-regexp "\\n" (the puzzle-input)))))
+                   (crt-drawn (let ((cycle 0)
+                                    (register-value (the register-init-value)))
+                                (let ((crt (alexandria:copy-array (the crt))))
+                                  (dolist (instruction (the instructions) crt)
+                                    (destructuring-bind (op &optional arg)
+                                        (glisp:split-regexp " " instruction)
+                                      (setq op (make-keyword op) arg (and arg (parse-integer arg)))
+
+                                      (incf cycle)
+
+                                      (let ((row (first (the (cycle-to-coord cycle)))))
+                                        (format t "~&~%Start cycle ~a: begin executing ~a ~a~%"
+                                                cycle op arg)
+                                        (format t "During Cycle ~a:  CRT draws pixel in position ~a~%"
+                                                cycle (1- cycle))
+                                        (the (draw-pixel! cycle register-value crt))
+                                        (format t "Current CRT row ~a: ~a~%"
+                                                row (aref crt row)))
+                                      (when (eql op :addx)
+                                        (incf cycle)
+                                        (let ((row (first (the (cycle-to-coord cycle)))))
+                                          (format t "~%During Cycle ~a:  CRT draws pixel in position ~a~%"
+                                                  cycle (1- cycle))
+                                          (the (draw-pixel! cycle register-value crt))
+                                          (format t "Current CRT row ~a: ~a~%"
+                                                  row (aref crt row))
+                                          (incf register-value arg)
+                                          (format t "End of cycle ~a:  Register value is ~a~%"
+                                                  cycle register-value)
+                                          (format t "Sprite Position: ~a"
+                                                  (the (sprite-string register-value))))))))))
+                   
+                   (instructions (glisp:split-regexp "\\n" (the puzzle-input))))
+
+  :functions ((sprite-string (register-value)
+                             (let ((string (make-string (the columns) :initial-element #\.)))
+                               (dotimes (i (the sprite-length) string)
+                                 (let ((col (1- (+ i register-value))))
+                                   (unless (or (minusp col) (>= col (the columns)))
+                                     (setf (aref string col) #\#))))))
+
+              (cycle-to-coord (cycle)
+                              (let* ((cycle (mod (1- cycle) (the pixels)))
+                                     (row (floor cycle (the columns)))
+                                     (col (mod cycle (the columns))))
+                                (list row col)))
+              (draw-pixel!
+               (cycle register crt)
+               (let* ((coord (the (cycle-to-coord cycle)))
+                      (sprite register)(pixel-col (second coord))
+                      (lit? (the (lit? sprite pixel-col))))
+                 (destructuring-bind (row col) coord
+                   (setf (aref (aref crt row) col)(if lit? #\# #\.)))))
+
+              (lit? (sprite pixel-col)
+                    (<= (1- sprite) pixel-col (1+ sprite)))
+              
+              (print! () (pprint (the crt-drawn)))))
 
 
 (setq *puzzle-input-test* "addx 15
