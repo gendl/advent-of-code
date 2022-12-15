@@ -1,0 +1,328 @@
+(in-package :gdl-user)
+(gdl:define-package :aoc2022-day-10)
+(in-package :aoc2022-day-10)
+
+(defparameter *puzzle-input* nil) (defparameter *puzzle-input-test* nil)
+
+
+(defun part-1 ()
+  (the-object (make-object 'device :puzzle-input *puzzle-input*) strength-sum))
+
+(defun part-2 ()
+  (let ((self (the-object (make-object 'device :puzzle-input *puzzle-input* :puzzle-part 2))))
+    (print (the crt-screen))))
+
+
+(define-object device ()
+  :input-slots ((puzzle-input *puzzle-input-test*)
+                (puzzle-part 1)
+                (register-init-value 1)
+                (interesting-cyles (list 20 60 100 140 180 220)))
+                                                   
+
+  :computed-slots (
+                   (strength-sum (let ((count 0)
+                                       (register-value (the register-init-value))
+                                       (sum 0))
+                                   (dolist (instruction (the instructions) sum)
+                                     (incf count)
+                                     (when (member count (the interesting-cyles))
+                                       (incf sum (* count register-value)))
+                                     (destructuring-bind (op &optional arg)
+                                         (glisp:split-regexp " " instruction)
+                                       (setq op (make-keyword op) arg (and arg (parse-integer arg)))
+                                       (when (eql op :addx)
+                                         (incf count)
+                                         (when (member count (the interesting-cyles))
+                                           (incf sum (* count register-value)))
+                                         (incf register-value arg))))))
+
+
+                   (instructions (glisp:split-regexp "\\n" (the puzzle-input)))))
+
+
+(setq *puzzle-input-test* "addx 15
+addx -11
+addx 6
+addx -3
+addx 5
+addx -1
+addx -8
+addx 13
+addx 4
+noop
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx -35
+addx 1
+addx 24
+addx -19
+addx 1
+addx 16
+addx -11
+noop
+noop
+addx 21
+addx -15
+noop
+noop
+addx -3
+addx 9
+addx 1
+addx -3
+addx 8
+addx 1
+addx 5
+noop
+noop
+noop
+noop
+noop
+addx -36
+noop
+addx 1
+addx 7
+noop
+noop
+noop
+addx 2
+addx 6
+noop
+noop
+noop
+noop
+noop
+addx 1
+noop
+noop
+addx 7
+addx 1
+noop
+addx -13
+addx 13
+addx 7
+noop
+addx 1
+addx -33
+noop
+noop
+noop
+addx 2
+noop
+noop
+noop
+addx 8
+noop
+addx -1
+addx 2
+addx 1
+noop
+addx 17
+addx -9
+addx 1
+addx 1
+addx -3
+addx 11
+noop
+noop
+addx 1
+noop
+addx 1
+noop
+noop
+addx -13
+addx -19
+addx 1
+addx 3
+addx 26
+addx -30
+addx 12
+addx -1
+addx 3
+addx 1
+noop
+noop
+noop
+addx -9
+addx 18
+addx 1
+addx 2
+noop
+noop
+addx 9
+noop
+noop
+noop
+addx -1
+addx 2
+addx -37
+addx 1
+addx 3
+noop
+addx 15
+addx -21
+addx 22
+addx -6
+addx 1
+noop
+addx 2
+addx 1
+noop
+addx -10
+noop
+noop
+addx 20
+addx 1
+addx 2
+addx 2
+addx -6
+addx -11
+noop
+noop
+noop")
+
+(setq *puzzle-input* "addx 1
+noop
+addx 4
+noop
+noop
+addx 7
+noop
+noop
+noop
+addx 3
+noop
+noop
+addx 5
+addx -1
+addx 1
+addx 5
+addx 3
+noop
+addx 3
+noop
+addx -1
+noop
+addx 3
+addx 5
+addx -38
+addx 7
+addx 10
+addx -14
+addx 5
+addx 30
+addx -25
+noop
+addx 2
+addx 3
+addx -2
+addx 2
+addx 5
+addx 2
+addx 2
+addx -21
+addx 22
+addx 5
+addx 2
+addx 3
+noop
+addx -39
+addx 1
+noop
+noop
+addx 3
+addx 5
+addx 4
+addx -5
+addx 4
+addx 4
+noop
+addx -9
+addx 12
+addx 5
+addx 2
+addx -1
+addx 6
+addx -2
+noop
+addx 3
+addx 3
+addx 2
+addx -37
+addx 39
+addx -33
+addx -1
+addx 1
+addx 8
+noop
+noop
+noop
+addx 2
+addx 20
+addx -19
+addx 4
+noop
+noop
+noop
+addx 3
+addx 2
+addx 5
+noop
+addx 1
+addx 4
+addx -21
+addx 22
+addx -38
+noop
+noop
+addx 7
+addx 32
+addx -27
+noop
+addx 3
+addx -2
+addx 2
+addx 5
+addx 2
+addx 2
+addx 3
+addx -2
+addx 2
+noop
+addx 3
+addx 5
+addx 2
+addx 3
+noop
+addx -39
+addx 2
+noop
+addx 4
+addx 8
+addx -8
+addx 6
+addx -1
+noop
+addx 5
+noop
+noop
+noop
+addx 3
+addx 5
+addx 2
+addx -11
+addx 12
+addx 2
+noop
+addx 3
+addx 2
+addx 5
+addx -6
+noop")

@@ -5,3 +5,4 @@ framework embedded in Common Lisp.
 
 You can learn about GendL (how to install it etc) at https://gornschool.com.
 
+Also if your version of GendL doesn't have `le` please use `list-elements` instead, and for `theo` use `the-object`.
