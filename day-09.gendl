@@ -1,5 +1,4 @@
-(in-package :gdl-user)
-(gdl:define-package :aoc2022-day-9)
+(in-package :gdl-user)(gdl:define-package :aoc2022-day-9)
 (in-package :aoc2022-day-9)
 
 (defparameter *tail-visited-points* nil)

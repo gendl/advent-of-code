@@ -90,7 +90,6 @@
                  (dotimes (y y-delta) (format t "~a " (mod y 10))
                    (dotimes (x x-delta)(format t "~a" (aref grid x y)))
                    (format t "~%"))))
-              
               (copy-grid (grid) (alexandria:copy-array grid))))
 
 
@@ -99,10 +98,8 @@
 
   :computed-slots ((sand-source-local (vec (- (get-x (the sand-source)) (the x-min))
                                            (get-y (the sand-source))))
-
                    (grid (first (the grid&count)))
                    (sand-count (second (the grid&count)))
-                   
                    (grid&count
                     (let ((grid (the (copy-grid (the stone-grid grid)))))
                       (setf (aref grid (get-x (the sand-source-local))
@@ -115,14 +112,12 @@
                         (setf (aref grid (get-x sand-coord) (get-y sand-coord))
                               (the sand-char))))))
 
-
   :functions ((drop-sand
                (grid &optional (coord (the sand-source-local)))
                (let ((dropped (the (drop-one grid coord))))
                  (when dropped
                    (if (eql dropped :blocked) coord
                        (the (drop-sand grid dropped))))))
-                     
               (drop-one
                (grid coord)
                (let ((dimensions (array-dimensions grid)))
@@ -132,7 +127,6 @@
                        (unless (eql result :blocked)
                          (if (null result) (return-from :drop-one nil)
                              (return-from :drop-one result))))))) :blocked)
-
               (drop-to
                (grid coord direction x-dim y-dim)
                (let ((coord (ecase direction
@@ -144,7 +138,6 @@
                        ((not (eql (aref grid (get-x coord)(get-y coord))
                                   (the empty-char))) :blocked)
                        (t coord))))
-              
               (in-bounds? (coord x-dim y-dim)
                             (and (>= (get-x coord) 0)(< (get-x coord) x-dim)
                                  (>= (get-y coord) 0)(< (get-y coord) y-dim)))))
@@ -153,13 +146,11 @@
 (define-object floored-grid (sandy-grid)
 
   :computed-slots ((y-delta-w-floor (+ (the y-delta) 2))
-
                    (sand-count (1+ (second (the grid&count))))
-                   
                    (sand-source-local (vec (+ (the y-delta-w-floor)
                                               (- (get-x (the sand-source)) (the x-min)))
                                            (get-y (the sand-source)))))
-  
+
   :functions ((copy-grid
                (grid)
                (let* ((y-delta (the (y-delta-w-floor)))
@@ -186,9 +177,6 @@
                                       :initial-element (the empty-char))))
                            (dolist (path (the paths-normalized) grid)
                              (the (draw-path grid path)))))
-                   
-                   
-
                    (paths-normalized
                     (let ((offset (vec (the x-min) 0)))
                       (mapcar #'(lambda (path)
@@ -199,7 +187,6 @@
                (grid path)
                (mapcar #'(lambda(p1 p2)(the (draw-line grid p1 p2)))
                        path (rest path)))
-
               (draw-line
                (grid p1 p2)
                (let* ((x1 (get-x p1))(y1 (get-y p1))(x2 (get-x p2))(y2 (get-y p2))
@@ -214,7 +201,6 @@
                    (setf (aref grid x2 (funcall y-op y1 i))(the stone-char)))
                  (setf (aref grid x2 y2) #\#)))))
   
-
 
 
 (setq *puzzle-input-test* "498,4 -> 498,6 -> 496,6

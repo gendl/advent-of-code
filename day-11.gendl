@@ -1,5 +1,4 @@
-(in-package :gdl-user)
-(gdl:define-package :aoc2022-day-11)
+(in-package :gdl-user)(gdl:define-package :aoc2022-day-11)
 (in-package :aoc2022-day-11)
 
 (defparameter *puzzle-input-test* nil)(defparameter *puzzle-input* nil)
