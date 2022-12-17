@@ -1,4 +1,5 @@
-(in-package :gdl-user)(gdl:define-package :aoc2022-day-14)(in-package :aoc2022-day-14)
+(in-package :gdl-user)(gdl:define-package :aoc2022-day-14)
+(in-package :aoc2022-day-14)
 
 (defparameter *puzzle-input* nil) (defparameter *puzzle-input-test* nil)
 
@@ -12,6 +13,8 @@
   (the-object (make-object 'puzzle
                            :puzzle-input *puzzle-input* :puzzle-part 2) answer))
 
+
+
 (defun vec (x y) (make-array 2 :initial-contents (list x y)))
 
 (defun add-vecs (v1 v2)
@@ -20,11 +23,16 @@
 (defun subtract-vecs (v1 v2)
   (vec (- (svref v1 0) (svref v2 0))(- (svref v1 1) (svref v2 1))))
 
-(defun length-vec (v) (floor (length-vector v)))
-
 (define-object puzzle ()
-  :input-slots ((puzzle-input *puzzle-input-test*) (puzzle-part 1))
-  :computed-slots ((answer nil)
+  
+  :input-slots ((puzzle-input *puzzle-input-test*)
+                (puzzle-part 1)
+                (chars (list :stone #\# :sand-source #\+ :sand #\o :empty #\.))
+                (sand-source (vec 500 0)))
+
+  :computed-slots ((answer (ecase (the puzzle-part)
+                             (1 (the sandy-grid sand-count))
+                             (2 (the floored-grid sand-count))))
                    (paths (let ((strings (glisp:split-regexp "\\n" (the puzzle-input))))
                             (mapcar #'(lambda (string)
                                         (let ((points (glisp:split-regexp " -> " string)))
@@ -35,13 +43,30 @@
                                                   points))) strings)))
                    (x-min (the (extreme #'min #'get-x)))
                    (x-max (1+ (the (extreme #'max #'get-x))))
-                   ;;(y-min (the (extreme #'min #'get-y)))
                    (y-min 0)
                    (y-max (1+ (the (extreme #'max #'get-y)))))
 
   
-  :objects ((grid :type 'grid
-                  :pass-down (x-min x-max y-min y-max paths)))
+  :objects ((stone-grid :type 'stone-grid
+                        :stone-char (getf (the chars) :stone)
+                        :empty-char (getf (the chars) :empty)
+                        :pass-down (x-min x-max y-min y-max paths))
+
+            (sandy-grid :type 'sandy-grid
+                        :sand-source-char (getf (the chars) :sand-source)
+                        :stone-char (getf (the chars) :stone)
+                        :sand-char (getf (the chars) :sand)
+                        :empty-char (getf (the chars) :empty)
+                        :pass-down (stone-grid x-min x-max y-min y-max sand-source))
+
+            (floored-grid :type 'floored-grid
+                          :sand-source-char (the sandy-grid sand-source-char)
+                          :stone-char (the sandy-grid stone-char)
+                          :sand-char (the sandy-grid sand-char)
+                          :empty-char (the sandy-grid empty-char)
+                          :pass-down (stone-grid x-min x-max y-min y-max sand-source)))
+
+
   
   :functions ((extreme (func accessor)
                        (apply func (mapcar #'(lambda (path)
@@ -50,17 +75,119 @@
                                                                    path)))
                                            (the paths))))))
 
-(define-object grid ()
-  :input-slots (x-min x-max y-min y-max paths)
+
+(define-object grid-mixin ()
+  :input-slots (grid stone-char empty-char x-min x-max y-min y-max)
+
+  :computed-slots  ((x-delta (- (the x-max) (the x-min)))
+                    (y-delta (- (the y-max) (the y-min))))
+  
+  :functions ((print
+               (&key (grid (the grid)))
+               (destructuring-bind (x-delta y-delta) (array-dimensions grid)
+                 (format t "  ")
+                 (dotimes (x x-delta)(format t "~a" (mod x 10)))(format t "~%")
+                 (dotimes (y y-delta) (format t "~a " (mod y 10))
+                   (dotimes (x x-delta)(format t "~a" (aref grid x y)))
+                   (format t "~%"))))
+              
+              (copy-grid (grid) (alexandria:copy-array grid))))
+
+
+(define-object sandy-grid (grid-mixin)
+  :input-slots (sand-source-char sand-char stone-grid sand-source)
+
+  :computed-slots ((sand-source-local (vec (- (get-x (the sand-source)) (the x-min))
+                                           (get-y (the sand-source))))
+
+                   (grid (first (the grid&count)))
+                   (sand-count (second (the grid&count)))
+                   
+                   (grid&count
+                    (let ((grid (the (copy-grid (the stone-grid grid)))))
+                      (setf (aref grid (get-x (the sand-source-local))
+                                  (get-y (the sand-source-local))) (the sand-source-char))
+                      (do ((sand-coord (the (drop-sand grid)) (the (drop-sand grid)))
+                           (count 0 (1+ count)))
+                          ((or (null sand-coord)
+                               (equalp sand-coord (the sand-source-local)))
+                           (list grid count))
+                        (setf (aref grid (get-x sand-coord) (get-y sand-coord))
+                              (the sand-char))))))
+
+
+  :functions ((drop-sand
+               (grid &optional (coord (the sand-source-local)))
+               (let ((dropped (the (drop-one grid coord))))
+                 (when dropped
+                   (if (eql dropped :blocked) coord
+                       (the (drop-sand grid dropped))))))
+                     
+              (drop-one
+               (grid coord)
+               (let ((dimensions (array-dimensions grid)))
+                 (destructuring-bind (x-dim y-dim) dimensions
+                   (dolist (direction '(:down :left :right))
+                     (let  ((result (the (drop-to grid coord direction x-dim y-dim))))
+                       (unless (eql result :blocked)
+                         (if (null result) (return-from :drop-one nil)
+                             (return-from :drop-one result))))))) :blocked)
+
+              (drop-to
+               (grid coord direction x-dim y-dim)
+               (let ((coord (ecase direction
+                              (:down (add-vecs coord (vec 0 1)))
+                              (:left (add-vecs coord (vec -1 1)))
+                              (:right (add-vecs coord (vec 1 1))))))
+
+                 (cond ((not (the (in-bounds? coord x-dim y-dim))) nil)
+                       ((not (eql (aref grid (get-x coord)(get-y coord))
+                                  (the empty-char))) :blocked)
+                       (t coord))))
+              
+              (in-bounds? (coord x-dim y-dim)
+                            (and (>= (get-x coord) 0)(< (get-x coord) x-dim)
+                                 (>= (get-y coord) 0)(< (get-y coord) y-dim)))))
+
+
+(define-object floored-grid (sandy-grid)
+
+  :computed-slots ((y-delta-w-floor (+ (the y-delta) 2))
+
+                   (sand-count (1+ (second (the grid&count))))
+                   
+                   (sand-source-local (vec (+ (the y-delta-w-floor)
+                                              (- (get-x (the sand-source)) (the x-min)))
+                                           (get-y (the sand-source)))))
+  
+  :functions ((copy-grid
+               (grid)
+               (let* ((y-delta (the (y-delta-w-floor)))
+                      (x-delta (+ (the x-delta) (twice y-delta))))
+                 (let ((new-grid (make-array (list x-delta y-delta)
+                                             :initial-element (the empty-char))))
+                   (dotimes (x (the x-delta))
+                     (dotimes (y (the y-delta))
+                       (setf (aref new-grid (+ x y-delta) y)
+                             (aref grid x y))))
+                   
+                   (dotimes (x x-delta)
+                     (setf (aref new-grid x (1- y-delta)) (the stone-char)))
+                   new-grid)))))
+                 
+
+
+(define-object stone-grid (grid-mixin)
+  :input-slots (paths)
 
   :computed-slots ((grid (let ((grid (make-array
-                                       (list (- (the x-max) (the x-min))
-                                             (- (the y-max) (the y-min)))
-                                       :initial-element #\.)))
-                           (dolist (path (the paths-normalized)) (the (draw-path grid path)))
-                           grid))
-                   (x-delta (- (the x-max) (the x-min)))
-                   (y-delta (- (the y-max) (the y-min)))
+                                      (list (- (the x-max) (the x-min))
+                                            (- (the y-max) (the y-min)))
+                                      :initial-element (the empty-char))))
+                           (dolist (path (the paths-normalized) grid)
+                             (the (draw-path grid path)))))
+                   
+                   
 
                    (paths-normalized
                     (let ((offset (vec (the x-min) 0)))
@@ -68,11 +195,9 @@
                                   (mapcar #'(lambda (point) (subtract-vecs point offset))
                                           path)) (the paths)))))
 
-  :functions (
-              (draw-path
+  :functions ((draw-path
                (grid path)
-               (mapcar #'(lambda(p1 p2)
-                           (the (draw-line grid p1 p2)))
+               (mapcar #'(lambda(p1 p2)(the (draw-line grid p1 p2)))
                        path (rest path)))
 
               (draw-line
@@ -81,28 +206,13 @@
                       (x-delta (- x2 x1))(y-delta (- y2 y1))
                       (x-op (if (minusp x-delta) #'- #'+))
                       (y-op (if (minusp y-delta) #'- #'+)))
-                 (setf (aref grid x1 y1) #\#)(setf (aref grid x2 y2) #\#)
+                 (unless (or (zerop x-delta) (zerop y-delta))
+                   (error "We only handle lines that are vertical or horzontal.~%"))
                  (dotimes (i (abs x-delta))
-                   (let* ((x (funcall x-op x1 i)))
-                     (setf (aref grid x y1) #\#)))
+                   (setf (aref grid (funcall x-op x1 i) y1)(the stone-char)))
                  (dotimes (i (abs y-delta))
-                   (let* ((y (funcall y-op y1 i)))
-                     (print-variables y1 y)
-                     (setf (aref grid x2 y) #\#)))))
-
-              
-              (print
-               ()
-               (let ((x-delta (the x-delta))(y-delta (the y-delta)))
-                 (format t "  ")
-                 (dotimes (x x-delta)(format t "~a" x))(format t "~%")
-                 (dotimes (y y-delta) (format t "~a " y)
-                   (dotimes (x x-delta)(format t "~a" (aref (the grid) x y)))
-                 (format t "~%"))))))
-
-  
-
-
+                   (setf (aref grid x2 (funcall y-op y1 i))(the stone-char)))
+                 (setf (aref grid x2 y2) #\#)))))
   
 
 
