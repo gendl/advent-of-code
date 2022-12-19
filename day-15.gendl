@@ -7,7 +7,8 @@
 
 (defun part-1 ()
   (the-object (make-object 'puzzle
-                           :puzzle-input *puzzle-input*) answer))
+                           :puzzle-input *puzzle-input*
+                           :row-of-interest 2000000) answer))
 
 (defun part-2 ()
   (the-object (make-object 'puzzle
@@ -17,22 +18,108 @@
 
 
 (define-object puzzle ()
-  :input-slots ((puzzle-input *puzzle-input-test*) (puzzle-part 1))
+  :input-slots ((puzzle-input *puzzle-input-test*)
+                (puzzle-part 1)
+                (row-of-interest 10))
 
-  :computed-slots ((input-lines (glisp:split-regexp "\\n" (the puzzle-input)))
+  :computed-slots ((answer (ecase (the puzzle-part)
+                             (1 (the map (count-in-zone (the row-of-interest))))
+                             ))
 
-                   (answer nil)
+                   (sensor-plists
+                   (mapcar
+                     #'(lambda(line)
+                         (destructuring-bind (sensor beacon)
+                             (glisp:split-regexp ":" line)
+                           (let ((sensor (subseq sensor #.(length "Sensor at ")))
+                                 (beacon (subseq beacon #.(length " closest beacon is at "))))
+                             (destructuring-bind (sx sy)(glisp:split-regexp "," sensor)
+                               (setq sx (parse-integer (second (glisp:split-regexp "=" sx))))
+                               (setq sy (parse-integer (second (glisp:split-regexp "=" sy))))
+                               (destructuring-bind (bx by)(glisp:split-regexp "," beacon)
+                                 (setq bx (parse-integer (second (glisp:split-regexp "=" bx))))
+                                 (setq by (parse-integer (second (glisp:split-regexp "=" by))))
+                                 (list :sensor (vec sx sy)
+                                       :beacon (vec bx by)))))))
+                     (glisp:split-regexp "\\n" (the puzzle-input)))))
 
-                   ))
+
+  :objects ((map :type 'map
+                 :pass-down (sensor-plists))))
+
+(define-object map ()
+  :input-slots (sensor-plists (empty-char #\.) (zone-char #\#))
+
+  :computed-slots (
+                   (x-delta (- (the x-max) (the x-min)))
+                   ;;(y-delta (- (the y-max) (the y-min)))
+                   (x-min (the (extreme #'min #'get-x)))
+                   (x-max (1+ (the (extreme #'max #'get-x))))
+                   ;;(y-min (the (extreme #'min #'get-y)))
+                   ;;(y-max (1+ (the (extreme #'max #'get-y))))
+
+                   (sensor-hash (let ((ht (make-hash-table :test #'equalp)))
+                                  (dolist (sensor (list-elements (the sensors)) ht)
+                                    (setf (gethash (theo sensor sensor) ht) t))))
+                   
+                   (beacon-hash (let ((ht (make-hash-table :test #'equalp)))
+                                  (dolist (sensor (list-elements (the sensors)) ht)
+                                    (setf (gethash (theo sensor beacon) ht) t)))))
+
+
+  :objects ((sensors :type 'sensor
+                     :sequence (:size (length (the sensor-plists)))
+                     :plist (nth (the-child index) (the sensor-plists))))
+
+  
+  :functions ((extreme (func accessor)
+                       (apply func (mapcar #'(lambda (point)
+                                               (funcall accessor point))
+                                           (mapcan #'(lambda(plist)(plist-values plist))
+                                                   (the sensor-plists)))))
+              (count-in-zone
+               (row)
+               (let ((count 0)
+                     (width (* (the x-delta) 3))
+                     (offset (- (the x-min) (the x-delta)))
+                     (sensor-hash (the sensor-hash))
+                     (beacon-hash (the beacon-hash))
+                     (sensor-list (list-elements (the sensors))))
+                 (dotimes (col width count)
+                   (let* ((col (+ col offset)))
+                     (when (zerop (mod col 100000)) (print-variables col))
+                     (when (the (in-a-zone? (vec col row) sensor-hash beacon-hash sensor-list))
+                       (incf count))))))
+
+              (in-a-zone? (point sensor-hash beacon-hash sensor-list)
+                          (unless (or (gethash point sensor-hash)
+                                      (gethash point beacon-hash))
+                            (dolist (sensor sensor-list)
+                              (when (theo sensor (in-zone? point))
+                                (return-from :in-a-zone? t)))))))
+
+
+(defun manhattan-distance (sensor beacon)
+  (declare (type (simple-array fixnum 2) sensor beacon))
+  (+ (abs (- (get-x sensor) (get-x beacon)))
+     (abs (- (get-y sensor) (get-y beacon)))))
+
+
+(define-object sensor ()
+  :input-slots (plist)
+
+  :computed-slots ((sensor (getf (the plist) :sensor))
+                   (beacon (getf (the plist) :beacon))
+                   (distance (manhattan-distance (the sensor) (the beacon))))
+
+  :functions ((in-zone?
+               (point)
+               (<= (manhattan-distance (the sensor) point) (the distance)))))
+
 
 
 (defun vec (x y) (make-array 2 :initial-contents (list x y)))
 
-(defun add-vecs (v1 v2)
-  (vec (+ (svref v1 0) (svref v2 0))(+ (svref v1 1) (svref v2 1))))
-
-(defun subtract-vecs (v1 v2)
-  (vec (- (svref v1 0) (svref v2 0))(- (svref v1 1) (svref v2 1))))
 
 (setq *puzzle-input-test* "Sensor at x=2, y=18: closest beacon is at x=-2, y=15
 Sensor at x=9, y=16: closest beacon is at x=10, y=16
