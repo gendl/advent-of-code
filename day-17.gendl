@@ -7,17 +7,20 @@
 
 (defun part-1 ()
   (the-object (make-object 'puzzle
+                           :drops 2022
                            :puzzle-input *puzzle-input*) answer))
 
 (defun part-2 ()
   (the-object (make-object 'puzzle
-                            :puzzle-input *puzzle-input* :puzzle-part 2) answer))
+                           :drops 2022
+                           :puzzle-input *puzzle-input* :puzzle-part 2) answer))
 
-(defvar *print?* nil)
+
 (defparameter *max-floor* nil)
 
 
 (define-object puzzle (base-object)
+  
   :input-slots ((puzzle-input *puzzle-input-test*)
                 (puzzle-part 1)
                 (rock-shapes '(((0 1 2 3))
@@ -25,47 +28,29 @@
                                ((0 1 2)(2)(2))
                                ((0)(0)(0)(0))
                                ((0 1)(0 1))))
-                (chamber-width 7)
-                (chamber-height #.(* 3 2020))
-                (empty-char #\.)
-                (rock-char #\#)
-                (rock-elevation 3)
-                (rock-offset 2)
-                (falling-rock-char #\@)
-                (min-to-print 10)
-                (drops 3)
-                ;;(drops 12)
-                ;;(drops 15)
-                ;;(drops 2022)
-                )
+                (chamber-width 7)(chamber-height #.(* 3 (the drops)))
+                (empty-char #\.)(rock-char #\#)(rock-elevation 3)
+                (rock-offset 2)(falling-rock-char #\@)(min-to-print 10)
+                (drops 2022))
 
   
-  :computed-slots ((answer (ecase (the puzzle-part) (1 (the floor))))
-
+  :computed-slots ((answer (ecase (the puzzle-part) (1 (the height))))
                    (moves (the puzzle-input))
-                   
                    (grid (make-array (list (the chamber-width)
                                            (the chamber-height))
                                      :initial-element (the empty-char)))
-
-                   (filled-grid (first (the filled-grid&floor)))
-                   (floor (second (the filled-grid&floor)))
-                   
-                   (filled-grid&floor (let ((grid (alexandria:copy-array (the grid)))
-                                      (move 0) (floor 0))
-                                  (dotimes (drop (the drops) grid)
-                                    (destructuring-bind (new-floor new-move)
-                                        (the (drop-rock :grid grid
-                                                        :rock (the (get-rock drop))
-                                                        :floor floor :move move))
-                                      (when *print?* (print-variables new-floor new-move))
-                                      (setq move new-move floor new-floor)))
-                                  (list grid floor)))
-
-
-                   (x-indices (list-of-numbers
-                               0 (1- (first (array-dimensions (the grid))))))
-                   
+                   (filled-grid (first (the filled-grid&height)))
+                   (height (second (the filled-grid&height)))
+                   (filled-grid&height (let ((grid (alexandria:copy-array (the grid)))
+                                             (move 0) (floor -1))
+                                         (dotimes (drop (the drops) grid)
+                                           (destructuring-bind (new-floor new-move)
+                                               (the (drop-rock :grid grid
+                                                               :rock (the (get-rock drop))
+                                                               :floor floor :move move))
+                                             (setq move new-move floor new-floor)))
+                                         (list grid (1+ floor))))
+                   (x-indices (list-of-numbers0 (1- (first (array-dimensions (the grid))))))
                    (shape-vecs (make-array
                                 (length (the rock-shapes))
                                 :initial-contents
@@ -78,64 +63,39 @@
 
   
   :functions ((get-rock (index) (aref (the shape-vecs) (mod index (length (the shape-vecs)))))
-
               (get-move (index) (aref (the moves) (mod index (length (the moves)))))
-
               (drop-rock
                (&key grid rock floor move)
-               (let* ((elevation (vec 0 (+ floor (the rock-elevation))))
+               (let* ((elevation (vec 0 (+ floor (the rock-elevation) 1)))
                       (rock (mapcar #'(lambda(stone) (add-vecs stone elevation)) rock))
                       (rock (the (apply-offset rock (the rock-offset)))))
-                 (when *print?* (print-variables floor))
-                 (let ((*max-floor* floor))
-                   (the (do-move :grid grid :rock rock :move move)))))
-
-              (do-move (&key grid rock move (first? t))
+                 (the (do-move :grid grid :floor floor :rock rock :move move))))
+              (do-move (&key grid rock floor move )
                 (let ((move-char (the (get-move move))))
-
-                  (when (and *print?* first?)
-                    (format t "~&~%~%New rock appears:~%")
-                    (the (:print :grid grid :rock rock)))
-                    
-                  (let ((can-move? (the (can-move? :direction (ecase move-char (#\< :left) (#\> :right))
-                                                   :grid grid :rock rock))))
-                    (when can-move? (setq rock (mapcar #'(lambda(stone)
-                                                           (vec (funcall (ecase move-char (#\< #'1-)(#\> #'1+))
-                                                                         (get-x stone))
-                                                                (get-y stone))) rock)))
-                    (when *print?* (format t "~&~%Jet of gas pushes rock ~a~a:~%"
-                                           (ecase move-char (#\< "left") (#\> "right"))
-                                           (if can-move? "" ", but nothing happens"))
-                          (the (print :grid grid :rock rock)))))
+                  (let ((can-move?
+                          (the (can-move? :direction (ecase move-char (#\< :left) (#\> :right))
+                                          :grid grid :rock rock))))
+                    (when can-move?
+                      (setq rock (mapcar #'(lambda(stone)
+                                             (vec (funcall (ecase move-char (#\< #'1-)(#\> #'1+))
+                                                           (get-x stone))
+                                                  (get-y stone))) rock)))))
+                (incf move)
                 (if (the (can-move? :direction :down :grid grid :rock rock))
-                    (the (do-drop :grid grid :rock rock :move (1+ move)))
+                    (the (do-drop :grid grid :rock rock :move move :floor floor))
                     (progn (mapc #'(lambda(stone)
                                      (setf (aref grid (get-x stone) (get-y stone))
                                            (the rock-char))) rock)
-                           (setq *max-floor* (max *max-floor*
-                                                  (1+ (get-y (most #'get-y rock)))))
-                           (when *print?*
-                             (format t "~&~%~%Rock falls 1 unit, causing it to come to rest:~%")
-                             (print-variables *max-floor*)
-                             (the (print :grid grid)))
-                           (list *max-floor*
-                                 (1+ move)
-                                 ))))
-
-              (do-drop (&key grid rock move)
+                           (let ((floor (max floor (get-y (most #'get-y rock)))))
+                             (list floor move)))))
+              (do-drop (&key grid rock move floor)
                 (let ((rock (mapcar #'(lambda(stone) (vec (get-x stone)(1- (get-y stone)))) rock)))
-                  (when *print?* (format t "~&~%Rock falls 1 unit:~%")
-                        (the (print :grid grid :rock rock)))
-                  (the (do-move :grid grid :rock rock :move move :first? nil))))
-
-
+                  (the (do-move :grid grid :rock rock :move move :floor floor ))))
               ;; FLAG use this for all movement.
               (apply-offset (rock offset)
                             (let* ((x-min (get-x (least #'get-x rock)))
                                    (offset (vec (+ x-min offset) 0)))
                               (mapcar #'(lambda(stone) (add-vecs stone offset)) rock)))
-
-              
               (can-move?
                (&key direction grid rock)
                (let* ((min-x (get-x (least #'get-x rock)))
@@ -158,16 +118,7 @@
                                               (:right (get-y stone))
                                               (:down (1- (get-y stone)))))
                                       (the empty-char)))
-                             (remove-if-not
-                              #'(lambda(stone)
-                                  (ecase direction
-                                    (:left (= (get-x stone) min-x))
-                                    (:right (= (get-x stone) max-x))
-                                    (:down (= (get-y stone) min-y))))
-                              rock)))))
-              
-
-              
+                             rock))))
               (print (&key (grid (the grid)) rock)
                      (mapc #'(lambda(stone)
                                (setf (aref grid (get-x stone)(get-y stone)) (the falling-rock-char)))
@@ -190,8 +141,6 @@
                      (mapc #'(lambda(stone)
                                (setf (aref grid (get-x stone)(get-y stone)) (the empty-char)))
                            rock))
-
-              
               (occupied? (&key grid row)
                          (some #'(lambda (x) (not (eql (aref grid x row) (the empty-char))))
                                (the x-indices)))))

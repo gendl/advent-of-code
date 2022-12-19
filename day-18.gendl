@@ -29,7 +29,7 @@
 
                    (centers-hash (let ((ht (make-hash-table :test #'equalp)))
                                    (dolist (cube (list-elements (the cubes)) ht)
-                                     (setf (gethash (theo cube center) ht) cube))))
+                                    (setf (gethash (theo cube center) ht) cube))))
 
 
                    (face-vectors-plist (list :up (vec 0 0 1)
@@ -61,12 +61,7 @@
                                       (let ((neighbor (add-vecs (the center) vector)))
                                         (unless (gethash neighbor (the centers-hash))
                                           (incf count))))))))
-  
 
-
-
-(define-object puzzle-real (puzzle)
-  :input-slots ((puzzle-input *puzzle-input*)))
 
 (defun vec (x y z) (make-array 3 :initial-contents (list x y z)))
 
